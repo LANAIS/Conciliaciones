@@ -126,7 +126,7 @@ Este proyecto está licenciado bajo la Licencia MIT - ver el archivo LICENSE par
 
 ## Contacto
 
-Para cualquier consulta o soporte, por favor contactar a [tu-email@example.com](mailto:tu-email@example.com).
+Para cualquier consulta o soporte, por favor contactar a [leandroismaelanais@gmail.com](mailto:leandroismaelanais@gmail.com).
 
 ```
 ├── components
