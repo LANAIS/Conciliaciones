@@ -1,0 +1,203 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                       String                    @id @default(uuid())
+  name                     String
+  email                    String                    @unique
+  password                 String
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  manualReconciliations    ManualReconciliation[]
+  memberships              Membership[]
+  reconciliationHistory    ReconciliationHistory[]
+  scheduledReconciliations ScheduledReconciliation[]
+}
+
+model Organization {
+  id                       String                    @id @default(uuid())
+  name                     String
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  manualReconciliations    ManualReconciliation[]
+  memberships              Membership[]
+  paymentButtons           PaymentButton[]
+  reconciliationHistory    ReconciliationHistory[]
+  scheduledReconciliations ScheduledReconciliation[]
+}
+
+model Role {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  createdAt   DateTime     @default(now())
+  description String?
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+  permissions Permission[] @relation("PermissionToRole")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  roles       Role[]   @relation("PermissionToRole")
+}
+
+model Membership {
+  id             String       @id @default(uuid())
+  userId         String
+  organizationId String
+  roleId         String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           Role         @relation(fields: [roleId], references: [id])
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+model PaymentButton {
+  id                       String                    @id @default(uuid())
+  name                     String
+  organizationId           String
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  apiKey                   String
+  secretKey                String
+  liquidations             Liquidation[]
+  manualReconciliations    ManualReconciliation[]
+  organization             Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reconciliationHistory    ReconciliationHistory[]
+  scheduledReconciliations ScheduledReconciliation[]
+  transactions             Transaction[]
+}
+
+model Transaction {
+  id              String        @id @default(uuid())
+  transactionId   String        @unique
+  amount          Float
+  currency        String
+  status          String
+  paymentMethod   String
+  quotas          Int           @default(1)
+  date            DateTime
+  expectedPayDate DateTime?
+  paymentButtonId String
+  liquidationId   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  liquidation     Liquidation?  @relation(fields: [liquidationId], references: [id])
+  paymentButton   PaymentButton @relation(fields: [paymentButtonId], references: [id], onDelete: Cascade)
+}
+
+model Liquidation {
+  id              String        @id @default(uuid())
+  liquidationId   String        @unique
+  amount          Float
+  currency        String
+  date            DateTime
+  status          String
+  paymentButtonId String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  paymentButton   PaymentButton @relation(fields: [paymentButtonId], references: [id], onDelete: Cascade)
+  transactions    Transaction[]
+}
+
+model SyncLog {
+  id        String   @id @default(uuid())
+  type      String
+  status    String
+  message   String?
+  createdAt DateTime @default(now())
+}
+
+model ReconciliationHistory {
+  id              String        @id @default(cuid())
+  createdAt       DateTime      @default(now())
+  userId          String
+  organizationId  String
+  paymentButtonId String
+  startDate       DateTime
+  endDate         DateTime
+  recordsAffected Int
+  totalAmount     Decimal       @db.Decimal(18, 2)
+  description     String?
+  status          String
+  organization    Organization  @relation(fields: [organizationId], references: [id])
+  paymentButton   PaymentButton @relation(fields: [paymentButtonId], references: [id])
+  user            User          @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([paymentButtonId])
+  @@index([createdAt])
+}
+
+model ScheduledReconciliation {
+  id                  String        @id @default(cuid())
+  name                String
+  description         String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  organizationId      String
+  paymentButtonId     String
+  createdById         String
+  frequency           String
+  dayOfWeek           Int?
+  dayOfMonth          Int?
+  hour                Int
+  minute              Int
+  daysToInclude       Int           @default(7)
+  notifyEmail         Boolean       @default(true)
+  notifyEmails        String?
+  isActive            Boolean       @default(true)
+  lastRun             DateTime?
+  nextRun             DateTime?
+  executionCount      Int           @default(0)
+  lastExecutionStatus String?
+  lastErrorMessage    String?
+  createdBy           User          @relation(fields: [createdById], references: [id])
+  organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  paymentButton       PaymentButton @relation(fields: [paymentButtonId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([paymentButtonId])
+  @@index([createdById])
+  @@index([frequency])
+  @@index([isActive])
+  @@index([nextRun])
+}
+
+model ManualReconciliation {
+  id              String        @id @default(cuid())
+  createdAt       DateTime      @default(now())
+  organizationId  String
+  paymentButtonId String
+  requestedById   String
+  startDate       DateTime
+  endDate         DateTime
+  status          String
+  completedAt     DateTime?
+  recordsAffected Int?
+  totalAmount     Decimal?      @db.Decimal(18, 2)
+  errorMessage    String?
+  organization    Organization  @relation(fields: [organizationId], references: [id])
+  paymentButton   PaymentButton @relation(fields: [paymentButtonId], references: [id])
+  requestedBy     User          @relation(fields: [requestedById], references: [id])
+
+  @@index([organizationId])
+  @@index([paymentButtonId])
+  @@index([requestedById])
+  @@index([status])
+  @@index([createdAt])
+}
